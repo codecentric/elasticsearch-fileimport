@@ -1,0 +1,13 @@
+fileimport:
+    mode: transport
+    root: data/testfiles
+    index: test
+    type: test
+    #flush_interval: 5s
+    max_bulk_actions: 1000
+    max_concurrent_bulk_requests: 1
+    max_volume_per_bulk_request: 10mb
+    #needed when mode: transport
+    transport:
+        addresses:
+            - 127.0.0.1:4321

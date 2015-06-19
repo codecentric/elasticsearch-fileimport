@@ -1,0 +1,28 @@
+fileimport:
+    #either transport or node
+    mode: node
+    #Folder with data
+    #One document per file, must end with .json
+    #Folder is scanned recursively
+    root: import/data
+    index: test
+    type: test
+    #flush_interval: 5s
+    max_bulk_actions: 1000
+    max_concurrent_bulk_requests: 1
+    max_volume_per_bulk_request: 10mb
+    #needed when mode: transport
+    transport:
+        addresses:
+            - localhost:9300
+            - es.comany.com:9300
+            
+# needed when mode: node
+cluster:
+    name: elasticsearch
+    
+
+#list other elasticsearch settings here if needed
+#discovery.zen.ping.multicast.enabled: false
+#discovery.zen.ping.unicast.hosts: host:9300
+#...
