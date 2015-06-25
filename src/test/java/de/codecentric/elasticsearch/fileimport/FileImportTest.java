@@ -1,12 +1,19 @@
 package de.codecentric.elasticsearch.fileimport;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,6 +32,7 @@ public class FileImportTest {
     private static final Logger logger = LogManager.getLogger(FileImportTest.class);
     private Node node;
     private static final int FILE_COUNT = 5010;
+    private static final int LINE_COUNT = 15010;
     private static final Path TEST_DIR = Paths.get("data", "testfiles");
     private static final Path EMPTY_DIR = Paths.get("data", "empty");
 
@@ -39,6 +47,19 @@ public class FileImportTest {
 
         Files.write(TEST_DIR.resolve(Paths.get("jsondoc_bad.json")), "\"a\":\"b\"!!!}".getBytes("UTF-8"));
         Files.write(TEST_DIR.resolve(Paths.get("jsondoc_bad2.json")), "fff}".getBytes("UTF-8"));
+
+        final StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < LINE_COUNT; i++) {
+            sb.append("{\"a\":\"b\"}" + System.lineSeparator());
+        }
+
+        sb.append("   " + System.lineSeparator());
+        sb.append("fff}" + System.lineSeparator());
+        sb.append("   " + System.lineSeparator());
+        sb.append("fff}" + System.lineSeparator());
+
+        Files.write(TEST_DIR.resolve(Paths.get("json_linebyline.jsonlbl")), sb.toString().getBytes("UTF-8"));
 
         final Settings settings = ImmutableSettings.builder().put("network.host", "127.0.0.1")
                 .put("discovery.zen.ping.multicast.enabled", false).build();
@@ -55,6 +76,40 @@ public class FileImportTest {
         final Settings settings = ImmutableSettings.builder().loadFromClasspath("file_import_settings_test_1.yml").build();
         final int count = new FileImporter(settings).startAsNode(settings);
         Assert.assertEquals(FILE_COUNT, count);
+    }
+
+    @Test
+    public void testLineByLineImport() throws IOException {
+        final Settings settings = ImmutableSettings.builder().loadFromClasspath("file_import_settings_test_6.yml").build();
+        final int count = new FileImporter(settings).startAsNode(settings);
+        Assert.assertEquals(LINE_COUNT, count);
+    }
+
+    @Test
+    public void testLineByLineImportBig() throws IOException {
+        
+        if(System.getProperty("fileimport.tests.big") == null) {
+            System.out.println("Big tests disabled. Set -Dfileimport.tests.big to enable them");
+            return;
+        }
+        
+        final long lines = 10000 * 100;
+        final String json = loadFile("json.txt").replace("\n", "").replace("\r", "");
+        Assert.assertTrue(json.trim().length() > 10);
+
+        final File bigFile = TEST_DIR.resolve(Paths.get("json_big.jsonlblbig")).toFile();
+
+        try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(bigFile, true), "UTF-8")) {
+            for (int i = 0; i < lines; i++) {
+                writer.write(json + System.lineSeparator());
+            }
+        }
+
+        System.out.println(bigFile.length() / 1024d / 1024d + " mb");
+
+        final Settings settings = ImmutableSettings.builder().loadFromClasspath("file_import_settings_test_7.yml").build();
+        final int count = new FileImporter(settings).startAsNode(settings);
+        Assert.assertEquals(lines, count);
     }
 
     @Test
@@ -110,6 +165,13 @@ public class FileImportTest {
             });
         } catch (final Exception e) {
             logger.warn(e);
+        }
+    }
+
+    protected String loadFile(final String file) throws IOException {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(this.getClass().getResourceAsStream("/" + file),
+                StandardCharsets.UTF_8))) {
+            return br.lines().collect(Collectors.joining(System.lineSeparator()));
         }
     }
 }
